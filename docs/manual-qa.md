@@ -4,6 +4,46 @@ Use disposable V14 worlds and a separate data folder dedicated to testing. Run t
 
 Node checks cover normalized events and a fake rendering lifecycle. They do not prove GPU output or Foundry's multiplayer permissions. Record the Foundry and system versions, user roles, observed results, and remaining gaps. Keep raw logs, screenshots, and local world data outside source control.
 
+## Reproduce CP-01 evidence
+
+Use the fixture binding and exact generation commands in [Performance reports](performance.md). Run `live-qa.mjs emit` for actual system-method assertions. Run `benchmark.mjs emit` for one fixed workload. Both generated expressions return sanitized JSON and restore their own changes. Node never attaches to a browser. The checked-in synthetic fixture intentionally fails generation until copied and bound locally.
+
+Run the ten lanes sequentially in an isolated world. Save `lane-1.png` through `lane-10.png` beside raw reports, install receipts, exact source SHAs, versions, and console error counts. A passing generated report only establishes its named workload and provenance. For lanes requiring controls, perform those actions through Foundry UI.
+
+| Lane | Procedure and required evidence |
+| --- | --- |
+| 1 | Run the same `ten-hit` scene at trunk and head, then verify correct visible totals. Record absent trunk features explicitly. Keep the 0.1.0 reference separate. |
+| 2 | Disable Combat Pulse in module management and reload. Run `off` with `system-ten-hit`. Save frame samples and a screenshot. |
+| 3 | Run `burst100`. Verify 100 accepted calls and at most 32 active token effects. Capture visible burst output separately. |
+| 4 | In PF2e, smoke-test working RPG Numbers through real system actions. Match numeric-only options and run `system-ten-hit` for all comparison variants. Record both versions and differences. Unsupported or broken comparisons are inconclusive. |
+| 5 | Recreate the disposable world and fixture, then run system QA and the benchmark procedure again. Check that another run produces the same required evidence without campaign access. |
+| 6 | Use GM and player clients for public, whispered, blind, and unowned-actor cases from Two-client privacy below. Record a separate receipt from each client for each case. |
+| 7 | Through token controls, hide a source while feedback is active. Repeat with real detection-only visibility. Confirm numbers, banners, and token artwork disappear. Restore visibility afterward. |
+| 8 | Change scenes, delete a fixture-owned temporary token, disable the module setting, and re-enable it. Verify idle cleanup after each step and a valid next event. Use disposable scene/token copies. Never delete and reconstruct an existing actor's token. |
+| 9 | Use browser reduced-motion controls with the module setting off, then use the module's Reduce motion setting. Repeat visible previews and verify stationary readable text without shake or echoes. The browser control is separate evidence. |
+| 10 | After a burst, call `clear`, inspect diagnostics, and inspect the browser console. Expect zero effects, zero owned layers, no module ticker, and no new uncaught error. Check expiry and idle results separately. |
+
+For every UI observation, save a neutral receipt in this shape. Fill screenshot references only after capturing them. Do not include actor names, hidden values, message contents, rolls, entity IDs, or user IDs.
+
+```json
+{
+  "schema": 1,
+  "kind": "live-lane",
+  "lane": 6,
+  "runId": "privacy-public-1",
+  "clientId": "gm-client",
+  "actionProvenance": "ui-action",
+  "status": "passed",
+  "assertions": [{"id": "public-feedback-once", "status": "passed"}],
+  "screenshotReferences": ["lane-6-gm-public.png"],
+  "counterpartRunIds": ["privacy-public-1-player"]
+}
+```
+
+Use `system-method` only for a verified system call, and `ui-action` only when Foundry controls were used. A two-client case requires distinct neutral run/client labels, matching case and installation receipts, and both screenshot references. Missing a client or screenshot leaves that case incomplete. Do not inspect excluded clients' hidden message fields to build a receipt. Record permitted effect counts and boolean assertions only.
+
+Restore manual lane changes before the next lane. Browser crashes and interruption cannot guarantee restoration. Reset the disposable fixture, keep the incomplete report, and rerun. These procedures do not establish comparative speed, GPU-memory behavior, or complete multiplayer correctness until their real evidence exists.
+
 ## Preview and lifecycle
 
 1. Enable the module and select one visible token. Open its previews from settings.
