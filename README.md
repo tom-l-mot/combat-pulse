@@ -1,5 +1,55 @@
 # Combat Pulse
 
-Combat feedback for Foundry Virtual Tabletop, inspired by the floating numbers, token motion, and cinematic messages of RPG Numbers.
+Combat feedback for Foundry Virtual Tabletop V14. Combat Pulse shows applied HP and temporary HP changes, check totals and known outcomes, critical banners, optional token visual echoes, and effect shake.
 
-Under development. The first version targets Foundry V14 with PF2e, SF2e, and D&D5e integrations, plus a conservative generic HP-change fallback. System support is claimed only after verification.
+This first playable has no runtime dependencies. Its code and geometric graphics are original and MIT licensed. RPG Numbers is a behavior reference. No source, art, or audio from that module is included.
+
+## Install and preview
+
+1. Run `npm run package` on Windows with Node 22 or later and Windows `tar.exe` available.
+2. Extract `dist/combat-pulse.zip` into the `Data/modules` folder of an isolated Foundry V14 installation. The resulting path is `Data/modules/combat-pulse/module.json`.
+3. Enable Combat Pulse in the test world.
+4. Open **Configure Settings**, then **Combat Pulse**. Select a visible token and open **Preview Combat Pulse**.
+
+The repository is private. There is no published release or public manifest installer URL yet.
+
+## System support
+
+| System | Automatic HP feedback | Checks | Status |
+| --- | --- | --- | --- |
+| PF2e | Applied-damage chat flags | Explicit totals and outcomes | Source-grounded, Node fixtures verified. Real-world QA pending. |
+| SF2e 1.6.1 | Exact SF2e applied-damage namespace | Explicit totals and outcomes | Real system event shape supplied by isolated QA and covered by Node fixtures. Rendering QA pending. |
+| D&D5e 6.0.6 | Prior HP from actor update options and current HP | Legacy `flags.dnd5e.roll.type` totals when present. Outcomes stay unknown. | Partial, source-grounded. Current runtime check metadata and rendering QA pending. |
+| Other systems | Opt-in numeric HP and optional temporary HP paths | Local API only | Limited generic mode. System-specific combat meaning is not inferred. |
+
+The manifest does not restrict systems. That does not promise automatic integration with every system. Generic mode is off by default and does not run alongside PF2e, SF2e, or D&D5e HP adapters. PF-family direct sheet HP edits are outside its applied-chat path. D&D5e and Foundry may show their own numbers at the same time. Combat Pulse never changes their settings.
+
+## Privacy and motion
+
+Every client derives permitted effects locally. Combat Pulse sends no socket messages. Hidden content and blind player rolls cannot generate numbers or critical banners. Token effects require one unambiguous visible token in the current scene. Actor-update feedback requires GM or actor ownership. Hidden tokens are skipped even for the GM.
+
+Token reactions are cosmetic texture echoes. Effect shake moves the effects only. They do not move actual tokens or the camera. Reduced motion follows the browser preference or the client setting and leaves stationary fading text. There is no automatic sound.
+
+Combat Pulse preserves the broad feedback groups, not the full RPG Numbers catalog. Actual token rotation, camera shake, finishers, stress presets, and cinematic assets are outside this first version. No measured performance superiority is claimed.
+
+## Local macro API
+
+```js
+const pulse = game.modules.get('combat-pulse').api;
+pulse.show({kind: 'health', tokenUuid: token.document.uuid, hpDelta: -7, tempDelta: -3});
+pulse.show({kind: 'check', tokenUuid: token.document.uuid, total: 24, outcome: 'success', attack: true});
+pulse.show({kind: 'banner', text: 'Round two', tone: 'neutral'});
+pulse.preview('critical');
+pulse.clear();
+pulse.diagnostics();
+```
+
+Calls affect this client only. Token effects still require visibility. `show` and `preview` return `{shown: true}` or `{shown: false, reason}`. Reasons are `invalid`, `disabled`, `no-canvas`, `not-visible`, or `select-token`. Banner text is plain text, limited to 160 characters. Tones are `neutral`, `success`, and `danger`. Check outcomes are `criticalSuccess`, `success`, `failure`, `criticalFailure`, and `unknown`.
+
+Preview samples are `health`, `healing`, `temp`, `check`, `critical`, and `banner`. Previews respect settings and never change documents or create chat. `diagnostics()` returns an immutable snapshot of counts. It exposes no renderer, tokens, rolls, or mutable state.
+
+## Verify
+
+Run `npm test`, `npm run check`, and `npm run package`. No npm installation is needed. Windows CI runs these same checks and retains the installable archive. Packaging verifies archive paths and extracted file bytes against the source.
+
+See [Architecture](docs/architecture.md) for ownership and [Manual QA](docs/manual-qa.md) for runtime acceptance. Passing Node tests does not establish real browser or multiplayer support.
