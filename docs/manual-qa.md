@@ -2,7 +2,7 @@
 
 Use disposable V14 worlds and a separate data folder dedicated to testing. Run the test server on an unused loopback port. Keep campaign worlds and other running servers separate.
 
-Node checks cover normalized events and a fake rendering lifecycle. They do not prove GPU output or Foundry's multiplayer permissions. Mark a system runtime-verified only after its applicable checks pass. Record the Foundry and system versions, user roles, observed results, and remaining gaps outside source files.
+Node checks cover normalized events and a fake rendering lifecycle. They do not prove GPU output or Foundry's multiplayer permissions. Record the Foundry and system versions, user roles, observed results, and remaining gaps. Keep raw logs, screenshots, and local world data outside source control.
 
 ## Preview and lifecycle
 
@@ -40,4 +40,4 @@ Here `pulse` means `game.modules.get('combat-pulse').api`. Its diagnostics are r
 
 ## Current release labels
 
-Node checks use a fake Foundry runtime. SF2e HP and check field shapes have isolated-runtime evidence, but each release still needs recorded browser and multiplayer QA. Record PF2e, D&D5e, generic live behavior, GPU cleanup, and two-client checks as pending until observed. D&D5e check outcomes intentionally remain unknown.
+The [verification record](verification.md) identifies the checks observed for this first playable. Basic runtime checks passed in PF2e, SF2e, and D&D5e. The checklist above is broader than those checks. Do not treat a basic pass as complete system acceptance. Generic live behavior and D&D5e check outcomes remain unverified.

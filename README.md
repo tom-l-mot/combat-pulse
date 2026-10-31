@@ -17,9 +17,9 @@ The repository is private. There is no published release or public manifest inst
 
 | System | Automatic HP feedback | Checks | Status |
 | --- | --- | --- | --- |
-| PF2e | Applied-damage chat flags | Explicit totals and outcomes | Source-grounded, Node fixtures verified. Real-world QA pending. |
-| SF2e 1.6.1 | Exact SF2e applied-damage namespace | Explicit totals and outcomes | Real system event shape supplied by isolated QA and covered by Node fixtures. Rendering QA pending. |
-| D&D5e 6.0.6 | Prior HP from actor update options and current HP | Current check, save, and attack message totals, plus legacy roll flags. Outcomes stay unknown. | Ability and skill totals covered by captured runtime fixtures. Save and attack types are source-grounded. Rendering QA pending. |
+| PF2e 8.6.1 | Applied-damage chat flags | Explicit totals and outcomes | Basic damage, capped healing, checks, and preview controls passed in an isolated V14 world. |
+| SF2e 1.6.1 | Exact SF2e applied-damage namespace | Explicit totals and outcomes | Basic events and two-client hidden-outcome checks passed in an isolated V14 world. |
+| D&D5e 6.0.6 | Prior HP from actor update options and current HP | Current check, save, and attack message totals, plus legacy roll flags. Outcomes stay unknown. | Basic events, two-client privacy, effect limits, and cleanup passed. Save and attack types remain source-grounded. |
 | Other systems | Opt-in numeric HP and optional temporary HP paths | Local API only | Limited generic mode. System-specific combat meaning is not inferred. |
 
 The manifest does not restrict systems. That does not promise automatic integration with every system. Generic mode is off by default and does not run alongside PF2e, SF2e, or D&D5e HP adapters. PF-family direct sheet HP edits are outside its applied-chat path. D&D5e and Foundry may show their own numbers at the same time. Combat Pulse never changes their settings.
@@ -52,4 +52,4 @@ Preview samples are `health`, `healing`, `temp`, `check`, `critical`, and `banne
 
 Run `npm test`, `npm run check`, and `npm run package`. No npm installation is needed. Windows CI runs these same checks and retains the installable archive. Packaging verifies archive paths and extracted file bytes against the source.
 
-See [Architecture](docs/architecture.md) for ownership and [Manual QA](docs/manual-qa.md) for runtime acceptance. Passing Node tests does not establish real browser or multiplayer support.
+See [Architecture](docs/architecture.md) for ownership, [Manual QA](docs/manual-qa.md) for runtime acceptance, and [Verification record](docs/verification.md) for observed results and remaining gaps. Passing Node tests alone does not establish browser or multiplayer support.
