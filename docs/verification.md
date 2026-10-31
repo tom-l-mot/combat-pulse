@@ -32,4 +32,4 @@ An independent source review found the initial startup and privacy faults before
 - D&D5e save and attack message types are source-grounded. Automatic outcomes remain unknown.
 - Browser-level reduced-motion preference, camera motion, pan and zoom, and every scene-transition path still need broader manual QA.
 - No comparison against RPG Numbers, frame-time benchmark, campaign-load test, or long-session memory study has run.
-- Remote CI and a hosted PR bot have not run. No release or public manifest installer URL is published.
+- At the local verification checkpoint, remote CI and a hosted PR bot had not run. Check the pull request for later results. No release or public manifest installer URL is published.
