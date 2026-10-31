@@ -52,7 +52,7 @@ export function install({Hooks, game, canvas: getCanvas, PIXI, now}) {
     diagnostics: () => Object.freeze({...renderer.diagnostics(), rememberedMessages: messages.size})
   });
 
-  Hooks.once('init', () => registerSettings(game, () => { renderer.clear(); seedAll(); }));
+  registerSettings(game, () => { renderer.clear(); seedAll(); });
   Hooks.once('ready', () => {
     game.modules.get(MODULE_ID).api = api;
     seedAll();
@@ -65,7 +65,8 @@ export function install({Hooks, game, canvas: getCanvas, PIXI, now}) {
   Hooks.on('deleteToken', token => { if (token.actor?.isToken) snapshots.delete(token.actor); renderer.clear(); });
   Hooks.on('createChatMessage', message => {
     if (!canReadMessage(message, game.user) || !messages.add(message.uuid ?? message.id)) return;
-    const effect = readMessage(message, game.system.id);
+    const effect = readMessage(message, game.system.id,
+      game.user.isGM || game.pf2e?.settings?.metagame?.results === true);
     if (!effect) return;
     const canvas = getCanvas();
     const speaker = message.speaker;
@@ -88,5 +89,5 @@ export function install({Hooks, game, canvas: getCanvas, PIXI, now}) {
   return api;
 }
 
-if (globalThis.Hooks && globalThis.game) install({Hooks: globalThis.Hooks, game: globalThis.game,
-  canvas: () => globalThis.canvas, PIXI: globalThis.PIXI});
+if (globalThis.Hooks) globalThis.Hooks.once('init', () => install({Hooks: globalThis.Hooks, game: globalThis.game,
+  canvas: () => globalThis.canvas, PIXI: globalThis.PIXI}));

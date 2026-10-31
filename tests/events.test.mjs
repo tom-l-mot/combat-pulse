@@ -29,7 +29,8 @@ test('shield, persistent creation, reverted and malformed application do not bec
 test('checks use exact namespaces and explicit outcome, never guessed hit or critical', () => {
   const r = runtime();
   const message = r.message('roll', {sf2e: {context: {type: 'attack-roll', outcome: 'criticalSuccess'}}});
-  assert.deepEqual(readMessage(message, 'sf2e'), {kind: 'check', total: 24, outcome: 'criticalSuccess', attack: true});
+  assert.deepEqual(readMessage(message, 'sf2e', true), {kind: 'check', total: 24, outcome: 'criticalSuccess', attack: true});
+  assert.deepEqual(readMessage(message, 'sf2e'), {kind: 'check', total: 24, outcome: 'unknown', attack: true});
   message.flags.sf2e.context.outcome = 'unverified';
   assert.deepEqual(readMessage(message, 'sf2e'), {kind: 'check', total: 24, outcome: 'unknown', attack: true});
   message.rolls = [];
@@ -46,6 +47,20 @@ test('5e zero-sum HP/temp updates survive and rests or unknown prior HP skip', (
     {isAdvancement: true, dnd5e: {hp: {value: 40, temp: 8}}}, {dnd5e: {hp: {value: 40}}}]) {
     assert.equal(dndHealth(r.actor, options), null);
   }
+});
+
+test('5e 6.0.6 ability and skill message fixtures retain totals without inventing outcomes', () => {
+  for (const [skill, total] of [[null, 6], ['ath', 22]]) {
+    const message = {type: 'check', system: {ability: 'str', skill, tool: null, activity: null,
+      item: null, origin: null, targets: [], type: 'ability'}, flags: {core: {canPopout: true}}, rolls: [{total}]};
+    assert.deepEqual(readMessage(message, 'dnd5e'), {kind: 'check', total, outcome: 'unknown', attack: false});
+  }
+  assert.deepEqual(readMessage({type: 'save', rolls: [{total: 17}]}, 'dnd5e'),
+    {kind: 'check', total: 17, outcome: 'unknown', attack: false});
+  assert.deepEqual(readMessage({type: 'attack', rolls: [{total: 20}]}, 'dnd5e'),
+    {kind: 'check', total: 20, outcome: 'unknown', attack: true});
+  assert.equal(readMessage({type: 'damage', rolls: [{total: 20}]}, 'dnd5e'), null);
+  assert.equal(readMessage({type: 'check', rolls: [{total: Infinity}]}, 'dnd5e'), null);
 });
 
 test('generic snapshots seed and refresh, ignore max-only and invalid observations', () => {

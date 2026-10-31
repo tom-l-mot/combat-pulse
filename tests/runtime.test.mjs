@@ -4,9 +4,13 @@ import {install} from '../scripts/main.js';
 import {runtime} from './fake-runtime.mjs';
 import {DEFINITIONS} from '../scripts/settings.js';
 
+globalThis.foundry = {applications: {api: {ApplicationV2: class {}, HandlebarsApplicationMixin: value => value}}};
+
 function setup(system = 'sf2e') {
   const r = runtime(system);
-  r.api = install({...r, canvas: () => r.canvas});
+  r.Hooks.once('init', () => { r.api = install({...r, canvas: () => r.canvas}); });
+  r.Hooks.call('init');
+  r.Hooks.call('canvasReady');
   r.Hooks.call('ready');
   return r;
 }
@@ -14,25 +18,99 @@ const health = {kind: 'health', tokenUuid: 'Scene.s.Token.t', hpDelta: -2, tempD
 
 test('settings registration uses the shared definitions and opens the preview application', () => {
   const r = setup();
-  const registered = new Map();
-  let menu;
-  globalThis.foundry = {applications: {api: {ApplicationV2: class {}, HandlebarsApplicationMixin: value => value}}};
-  r.game.settings.register = (_id, key, options) => registered.set(key, options);
-  r.game.settings.registerMenu = (_id, _key, options) => { menu = options; };
-  try {
-    r.Hooks.call('init');
-    assert.equal(registered.size, 10);
-    for (const definition of DEFINITIONS) {
-      assert.equal(registered.get(definition.key).default, definition.default);
-      assert.equal(registered.get(definition.key).scope, definition.scope);
+  const registered = r.registrations;
+  const menu = r.menus.get('preview');
+  assert.equal(registered.size, 10);
+  for (const definition of DEFINITIONS) {
+    assert.equal(registered.get(definition.key).default, definition.default);
+    assert.equal(registered.get(definition.key).scope, definition.scope);
+  }
+  assert.equal(menu.restricted, false);
+  assert.equal(menu.type.PARTS.body.template, 'modules/combat-pulse/templates/settings.hbs');
+  r.api.show(health);
+  registered.get('enabled').onChange();
+  assert.equal(r.api.diagnostics().active, 0);
+  assert.equal(r.callbacks.size, 0);
+});
+
+test('entrypoint binds the replacement game during init before canvasReady and ready', async t => {
+  const r = runtime();
+  const names = ['Hooks', 'game', 'canvas', 'PIXI'];
+  const previous = Object.fromEntries(names.map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]));
+  t.after(() => {
+    for (const name of names) {
+      if (previous[name]) Object.defineProperty(globalThis, name, previous[name]);
+      else delete globalThis[name];
     }
-    assert.equal(menu.restricted, false);
-    assert.equal(menu.type.PARTS.body.template, 'modules/combat-pulse/templates/settings.hbs');
-    r.api.show(health);
-    registered.get('enabled').onChange();
-    assert.equal(r.api.diagnostics().active, 0);
-    assert.equal(r.callbacks.size, 0);
-  } finally { delete globalThis.foundry; }
+  });
+  Object.assign(globalThis, {Hooks: r.Hooks, game: {}, canvas: r.canvas, PIXI: r.PIXI});
+  await import('../scripts/main.js?startup-regression');
+  globalThis.game = r.game;
+  r.Hooks.call('init');
+  assert.equal(r.registrations.size, 10);
+  assert.equal(r.menus.get('preview').restricted, false);
+  r.Hooks.call('canvasReady');
+  r.Hooks.call('ready');
+  const api = r.game.modules.get('combat-pulse').api;
+  assert.deepEqual(api.preview('health'), {shown: true});
+  assert.equal(r.canvas.interface.children[0].children[0].children[0].text, '-7\nTemp -3');
+  api.clear();
+  assert.equal(r.callbacks.size, 0);
+});
+
+test('PF-family result visibility preserves totals and only authorized outcome labels and banners', () => {
+  for (const system of ['pf2e', 'sf2e']) {
+    for (const isGM of [false, true]) {
+      for (const results of [false, true, undefined]) {
+        const r = setup(system);
+        r.game.user.isGM = isGM;
+        if (results === undefined) delete r.game.pf2e;
+        else r.game.pf2e.settings.metagame.results = results;
+        r.Hooks.call('createChatMessage', r.message('outcome', {
+          [system]: {context: {type: 'attack-roll', outcome: 'criticalSuccess'}}
+        }));
+        const labels = r.canvas.interface.children[0].children.flatMap(node =>
+          node.children.filter(child => typeof child.text === 'string').map(child => child.text));
+        const allowed = isGM || results === true;
+        assert.deepEqual(labels, allowed ? ['24\nCritical success', 'Critical success!'] : ['24'],
+          `${system}, GM=${isGM}, results=${results}`);
+        assert.equal(r.api.diagnostics().banners, allowed ? 1 : 0);
+        r.api.clear();
+      }
+    }
+  }
+});
+
+test('detection-only tokens expose no effects or raw texture, including during active visuals', () => {
+  const r = setup();
+  r.values.reactions = true;
+  r.values.shake = true;
+  const filter = {knockout: true};
+  const texture = r.token.mesh.texture;
+  r.token.detectionFilter = filter;
+  let textureReads = 0;
+  Object.defineProperty(r.token.mesh, 'texture', {get() { textureReads++; return texture; }});
+  assert.deepEqual(r.api.show(health), {shown: false, reason: 'not-visible'});
+  assert.deepEqual(r.api.show({kind: 'banner', tokenUuid: health.tokenUuid, text: 'Hidden', tone: 'danger'}),
+    {shown: false, reason: 'not-visible'});
+  r.Hooks.call('createChatMessage', r.message('detected'));
+  assert.equal(textureReads, 0);
+  assert.equal(r.canvas.interface.children.length, 0);
+  r.token.detectionFilter = null;
+  assert.deepEqual(r.api.preview('critical'), {shown: true});
+  const layer = r.canvas.interface.children[0];
+  const echo = layer.children[0].children.find(child => child.texture === texture);
+  assert.equal(echo.texture, texture);
+  assert.equal(r.api.diagnostics().banners, 1);
+  r.token.detectionFilter = filter;
+  r.advance(20);
+  assert.equal(echo.destroyed, true);
+  assert.equal(r.api.diagnostics().active, 0);
+  assert.equal(r.api.diagnostics().banners, 0);
+  assert.equal(r.callbacks.size, 0);
+  assert.equal(r.canvas.interface.children.length, 0);
+  assert.equal(r.token.detectionFilter, filter);
+  assert.deepEqual(texture, {shared: true});
 });
 
 test('public API previews display literal text without document changes and no idle ticker', () => {
@@ -178,6 +256,17 @@ test('5e actor update shows zero-sum components to owner, skips non-owner and re
   r.game.user.isGM = true;
   r.Hooks.call('updateActor', r.actor, {}, options);
   assert.equal(r.api.diagnostics().active, 2);
+});
+
+test('5e current check messages render totals from an actor speaker without legacy flags', () => {
+  const r = setup('dnd5e');
+  for (const [id, skill, total] of [['ability', null, 6], ['skill', 'ath', 22]]) {
+    r.Hooks.call('createChatMessage', {...r.message(id, {core: {canPopout: true}}), type: 'check',
+      system: {ability: 'str', skill, tool: null, activity: null, item: null, origin: null, targets: [], type: 'ability'},
+      speaker: {scene: null, actor: 'a', token: null}, rolls: [{total}]});
+  }
+  assert.deepEqual(r.canvas.interface.children[0].children.map(node => node.children[0].text), ['6', '22']);
+  assert.equal(r.api.diagnostics().banners, 0);
 });
 
 test('PF family ignores actor updates and generic switch, and ambiguous application skips', () => {

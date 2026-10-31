@@ -10,7 +10,6 @@ export function effectText(effect) {
   return [effect.hpDelta ? signed(effect.hpDelta) : '', effect.tempDelta ? `Temp ${signed(effect.tempDelta)}` : ''].filter(Boolean).join('\n');
 }
 
-/** Owns only its container and display objects. No token mesh or shared texture mutation. */
 export function createRenderer({canvas: getCanvas, token: getToken, preferences, PIXI, now = () => performance.now()}) {
   let layer = null;
   let ticker = null;

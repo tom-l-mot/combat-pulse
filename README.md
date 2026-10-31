@@ -19,14 +19,14 @@ The repository is private. There is no published release or public manifest inst
 | --- | --- | --- | --- |
 | PF2e | Applied-damage chat flags | Explicit totals and outcomes | Source-grounded, Node fixtures verified. Real-world QA pending. |
 | SF2e 1.6.1 | Exact SF2e applied-damage namespace | Explicit totals and outcomes | Real system event shape supplied by isolated QA and covered by Node fixtures. Rendering QA pending. |
-| D&D5e 6.0.6 | Prior HP from actor update options and current HP | Legacy `flags.dnd5e.roll.type` totals when present. Outcomes stay unknown. | Partial, source-grounded. Current runtime check metadata and rendering QA pending. |
+| D&D5e 6.0.6 | Prior HP from actor update options and current HP | Current check, save, and attack message totals, plus legacy roll flags. Outcomes stay unknown. | Ability and skill totals covered by captured runtime fixtures. Save and attack types are source-grounded. Rendering QA pending. |
 | Other systems | Opt-in numeric HP and optional temporary HP paths | Local API only | Limited generic mode. System-specific combat meaning is not inferred. |
 
 The manifest does not restrict systems. That does not promise automatic integration with every system. Generic mode is off by default and does not run alongside PF2e, SF2e, or D&D5e HP adapters. PF-family direct sheet HP edits are outside its applied-chat path. D&D5e and Foundry may show their own numbers at the same time. Combat Pulse never changes their settings.
 
 ## Privacy and motion
 
-Every client derives permitted effects locally. Combat Pulse sends no socket messages. Hidden content and blind player rolls cannot generate numbers or critical banners. Token effects require one unambiguous visible token in the current scene. Actor-update feedback requires GM or actor ownership. Hidden tokens are skipped even for the GM.
+Every client derives permitted effects locally. Combat Pulse sends no socket messages. Hidden content and blind player rolls cannot generate numbers or critical banners. PF2e and SF2e players see outcomes only when Show Results is enabled. Token effects require one unambiguous visible token in the current scene. Actor-update feedback requires GM or actor ownership. Hidden and detection-only tokens are skipped even for the GM.
 
 Token reactions are cosmetic texture echoes. Effect shake moves the effects only. They do not move actual tokens or the camera. Reduced motion follows the browser preference or the client setting and leaves stationary fading text. There is no automatic sound.
 

@@ -42,8 +42,15 @@ export function runtime(systemId = 'sf2e') {
   const handlers = new Map();
   const Hooks = {
     on(name, callback) { const list = handlers.get(name) ?? []; list.push(callback); handlers.set(name, list); },
-    once(name, callback) { this.on(name, callback); },
-    call(name, ...args) { for (const handler of handlers.get(name) ?? []) handler(...args); }
+    once(name, callback) {
+      const once = (...args) => {
+        const list = handlers.get(name);
+        list.splice(list.indexOf(once), 1);
+        callback(...args);
+      };
+      this.on(name, once);
+    },
+    call(name, ...args) { for (const handler of [...handlers.get(name) ?? []]) handler(...args); }
   };
   const actor = {uuid: 'Actor.a', id: 'a', isOwner: true, system: {attributes: {hp: {value: 40, temp: 8}}}};
   const token = {id: 't', document: {uuid: 'Scene.s.Token.t', parent: {id: 's'}, hidden: false},
@@ -55,13 +62,18 @@ export function runtime(systemId = 'sf2e') {
       add(callback) { callbacks.add(callback); }, remove(callback) { callbacks.delete(callback); }
     }}};
   const values = Object.fromEntries(DEFINITIONS.map(({key, default: value}) => [key, value]));
+  const registrations = new Map();
+  const menus = new Map();
   const modules = new Map([['combat-pulse', {}]]);
   const actors = new Map([['a', actor]]);
   actors[Symbol.iterator] = function* () { yield* this.values(); };
   const game = {system: {id: systemId}, user: {id: 'u', isGM: false}, modules, actors,
-    settings: {get: (_id, key) => values[key]}};
+    pf2e: {settings: {metagame: {results: true}}},
+    settings: {get: (_id, key) => values[key],
+      register: (_id, key, options) => registrations.set(key, options),
+      registerMenu: (_id, key, options) => menus.set(key, options)}};
   let clock = 0;
-  return {Hooks, game, canvas, token, actor, values, callbacks, PIXI, handlers,
+  return {Hooks, game, canvas, token, actor, values, callbacks, PIXI, handlers, registrations, menus,
     now: () => clock,
     advance(ms) { clock += ms; for (const callback of [...callbacks]) callback(); },
     message(id = 'm', flags = {sf2e: {appliedDamage: {uuid: 'Actor.a', updates: [

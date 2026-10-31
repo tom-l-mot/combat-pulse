@@ -9,7 +9,6 @@ export const getPath = (object, path) => path.split('.').reduce((value, key) => 
 export const validPath = path => typeof path === 'string' && /^system\.[a-zA-Z0-9_-]+(?:\.[a-zA-Z0-9_-]+)+$/.test(path)
   && !path.split('.').some(key => ['__proto__', 'prototype', 'constructor'].includes(key));
 
-/** Validate once at the public boundary and discard unknown fields. */
 export function normalizeEffect(value) {
   if (!value || typeof value !== 'object') return null;
   const tokenUuid = typeof value.tokenUuid === 'string' && value.tokenUuid.length <= 256 && value.tokenUuid.length > 0
@@ -51,8 +50,7 @@ export function messageIdentitySet(capacity = 512) {
   };
 }
 
-/** Requires message authorization before reading any flags or rolls. */
-export function readMessage(message, systemId) {
+export function readMessage(message, systemId, outcomesVisible = false) {
   if (systemId === 'pf2e' || systemId === 'sf2e') {
     const flags = message.flags?.[systemId];
     const applied = flags?.appliedDamage;
@@ -72,13 +70,13 @@ export function readMessage(message, systemId) {
     const context = flags?.context;
     const total = message.rolls?.[0]?.total;
     if (!CHECKS.has(context?.type) || !finite(total)) return null;
-    return {kind: 'check', total, outcome: OUTCOMES.has(context.outcome) ? context.outcome : 'unknown',
+    return {kind: 'check', total, outcome: outcomesVisible && OUTCOMES.has(context.outcome) ? context.outcome : 'unknown',
       attack: context.type === 'attack-roll'};
   }
   if (systemId === 'dnd5e') {
-    const type = message.flags?.dnd5e?.roll?.type;
+    const type = ['check', 'save', 'attack'].includes(message.type) ? message.type : message.flags?.dnd5e?.roll?.type;
     const total = message.rolls?.[0]?.total;
-    if (!['attack', 'ability', 'skill', 'save', 'tool', 'death'].includes(type) || !finite(total)) return null;
+    if (!['check', 'attack', 'ability', 'skill', 'save', 'tool', 'death'].includes(type) || !finite(total)) return null;
     // shortcut: 5e outcome metadata is not runtime verified, keep outcomes unknown until fixtures prove it.
     return {kind: 'check', total, outcome: 'unknown', attack: type === 'attack'};
   }
@@ -121,7 +119,7 @@ export function snapshotStore() {
 }
 
 export function tokenVisible(token, sceneId) {
-  return Boolean(token && !token.destroyed && !token.document?.hidden
+  return Boolean(token && !token.destroyed && !token.document?.hidden && !token.detectionFilter
     && token.document?.parent?.id === sceneId && token.visible === true);
 }
 
