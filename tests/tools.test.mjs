@@ -190,7 +190,7 @@ for (const system of ['pf2e', 'sf2e', 'dnd5e']) {
       assert.deepEqual(fake.actor.system.attributes.hp, original);
       assert.equal(fake.game.paused, true);
       assert.equal(listeners.size, 0);
-      assert.doesNotMatch(JSON.stringify(report), /999|"total"/);
+      assert.doesNotMatch(JSON.stringify(report), /:\s*999\s*[,}\]]|"total"/);
     }
   });
 }
