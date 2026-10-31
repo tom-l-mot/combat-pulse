@@ -86,17 +86,22 @@ export function browserContext(fixture, variant = 'current') {
       else await actor.applyDamage({damage: amount, token: token.document, skipIWR: true});
     },
     async check() {
+      let roll;
       if (game.system.id === 'dnd5e') {
         require(typeof actor.rollAbilityCheck === 'function', 'system-check-unavailable');
-        await actor.rollAbilityCheck({ability: 'str'}, {configure: false});
+        const rolls = await actor.rollAbilityCheck({ability: 'str'}, {configure: false});
+        require(Array.isArray(rolls) && rolls.length === 1, 'system-check-result');
+        roll = rolls[0];
       } else {
         const api = game.pf2e;
         require(typeof api?.Check?.roll === 'function' && typeof api.CheckModifier === 'function', 'system-check-unavailable');
-        await api.Check.roll(new api.CheckModifier('Disposable QA', {modifiers: []}), {
+        roll = await api.Check.roll(new api.CheckModifier('Disposable QA', {modifiers: []}), {
           actor, token: token.document, type: 'attack-roll', dc: {value: 15},
           options: new Set(['item:ranged']), skipDialog: true, createMessage: true
         });
       }
+      require(!Array.isArray(roll) && Number.isFinite(roll?.total), 'system-check-result');
+      return roll.total;
     },
     metadata(workload, cadenceMs) {
       const screen = canvas.app.renderer.screen;
@@ -158,7 +163,7 @@ export async function runSystemQa(fixture, context = browserContext) {
     report.metadata = owner.metadata('system-actions', 0);
     owner.require(fixture.settings.checks, 'checks-disabled');
     const assert = (id, value) => { report.assertions.push({id, status: value ? 'passed' : 'failed'}); owner.require(value, 'assertion-failed'); };
-    const action = async callback => { report.work.attempted++; await callback(); report.work.completed++; };
+    const action = async callback => { report.work.attempted++; const result = await callback(); report.work.completed++; return result; };
     await owner.seed();
     let before = owner.snapshot();
     await action(() => owner.damage(10));
@@ -171,8 +176,10 @@ export async function runSystemQa(fixture, context = browserContext) {
     report.work.displayed += owner.snapshot().displayed - before.displayed;
     owner.pulse.clear();
     before = owner.snapshot();
-    await action(() => owner.check());
-    assert('check-total', owner.snapshot().displayed > before.displayed && owner.labels().some(value => /^\d+/.test(value)));
+    const total = await action(() => owner.check());
+    const totals = owner.labels().map(value => value.split('\n')[0])
+      .filter(value => value.trim() !== '' && Number.isFinite(Number(value)));
+    assert('check-total', owner.snapshot().displayed > before.displayed && totals.length === 1 && Number(totals[0]) === total);
     report.work.displayed += owner.snapshot().displayed - before.displayed;
     report.status = 'complete';
   } catch {

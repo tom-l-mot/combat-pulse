@@ -23,7 +23,7 @@ From the checkout, generate the expression with Node 22 or later. In PowerShell,
 node tools/live-qa.mjs emit --fixture=C:/local/qa-fixture.json | Set-Content -Encoding utf8 C:/local/qa-browser.js
 ```
 
-Evaluate the generated expression in the disposable client. Expect a `system-qa` report with three passed assertions and three completed actions. The script seeds 40 HP and 8 temporary HP, applies 10 damage through the system, heals by 5, and rolls a real check. It checks separate damage components, capped healing, and a displayed numeric check total.
+Evaluate the generated expression in the disposable client. Expect a `system-qa` report with three passed assertions and three completed actions. The script seeds 40 HP and 8 temporary HP, applies 10 damage through the system, heals by 5, and rolls a real check. It checks separate damage components, capped healing, and exactly one displayed numeric check total equal to the system's returned total. PF2e and SF2e return one roll object. D&D5e returns a one-element roll array for this call. Missing, canceled, non-finite, or multiple results fail the run. Raw totals stay out of the report.
 
 The script records `system-method` provenance. It does not satisfy sheet-control, privacy, or two-client lanes. Attach the required UI receipts in [Manual QA](manual-qa.md). Empty screenshot and counterpart lists are evidence still to collect, not a visual pass.
 
@@ -69,7 +69,9 @@ Successful output is `comparable`. Invalid evidence returns `inconclusive` and a
 
 `dispatchMs` contains one raw duration per completed call. For an API workload this is synchronous dispatch and allocation time. For a system workload it includes the awaited system method. Do not mix those meanings across cohorts.
 
-`frameTimestampsMs` and `frameIntervalsMs` come from `requestAnimationFrame` over the whole collection window, including workload, a 2000 ms expiry wait, and a 250 ms idle wait. They describe whole-client frame cadence during that window. They do not isolate active-frame CPU cost. Window start and finish use the same performance clock. Quantiles use nearest rank: sort the samples and select index `ceil(fraction * count) - 1`. Pair summaries and pooled summaries retain sample counts.
+`frameTimestampsMs` and `frameIntervalsMs` come from `requestAnimationFrame` over the whole collection window, including workload, a 2000 ms expiry wait, and a 250 ms idle wait. The window starts on an observed frame before dispatch and finishes on an observed frame after the idle wait. This retains synchronous dispatch stalls in the raw intervals. They describe whole-client frame cadence during that window. They do not isolate active-frame CPU cost. Window start and finish use the same performance clock. Quantiles use nearest rank: sort the samples and select index `ceil(fraction * count) - 1`. Pair summaries and pooled summaries retain sample counts.
+
+The reducer rejects missing coverage at either window edge. Each uncovered edge must be at most the nearest-rank median observed interval plus 1 ms for clock precision. This allows one typical frame at either edge without imposing a minimum frame rate or using an interior stall to excuse a large missing span. Every raw interval, including slow frames, remains in the summaries. The current emitter records both edges directly. Rerun older captures whose missing edge coverage exceeds this tolerance.
 
 `dispatchToRenderCompleteMs` observes the installed PIXI renderer's `runners.postrender`. It records a render-complete boundary only while a newly submitted effect remains active. A synchronous burst contributes one boundary, while paced calls can contribute one each. A rejected run cannot produce comparable results. Unsupported or unobserved boundaries are unavailable. Actual system actions do not claim an isolated render-complete measurement.
 

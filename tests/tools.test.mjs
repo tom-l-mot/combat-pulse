@@ -18,11 +18,11 @@ const fixture = () => ({...structuredClone(example), synthetic: false, worldId: 
   install: {sha: 'a'.repeat(40), dirty: false, packageHash: 'b'.repeat(64), receipt: 'install-1'},
   machine: {label: 'test-machine', cpu: 'synthetic-cpu', ram: '16GB', gpu: 'synthetic-gpu', os: 'test-os', browserVersion: 'test-1'}});
 
-function browser() {
-  const fake = runtime('pf2e');
+function browser(system = 'pf2e') {
+  const fake = runtime(system);
   fake.game.world = {id: 'w'};
   fake.game.version = '14.369';
-  fake.game.system.version = '8.6.1';
+  fake.game.system.version = {pf2e: '8.6.1', sf2e: '1.6.1', dnd5e: '6.0.6'}[system];
   fake.game.paused = true;
   fake.game.togglePause = async value => { fake.game.paused = value; };
   fake.game.modules.get('combat-pulse').active = true;
@@ -48,7 +48,19 @@ function browser() {
     window: {addEventListener: (type, fn) => listeners.set(type, fn), removeEventListener: type => listeners.delete(type)},
     innerWidth: 1200, innerHeight: 800, devicePixelRatio: 1, matchMedia: () => ({matches: false}),
     performance: {now: () => clock},
-    requestAnimationFrame: fn => { rafs.set(++rafId, fn); return rafId; }, cancelAnimationFrame: id => rafs.delete(id),
+    requestAnimationFrame: fn => {
+      const id = ++rafId;
+      rafs.set(id, fn);
+      setImmediate(() => {
+        if (!rafs.has(id)) return;
+        clock += 16;
+        fake.advance(16);
+        const callbacks = [...rafs.values()]; rafs.clear();
+        for (const callback of callbacks) callback(clock);
+        for (const observer of observers) observer.postrender();
+      });
+      return id;
+    }, cancelAnimationFrame: id => rafs.delete(id),
     setTimeout: (fn, ms) => {
       clock += ms;
       fake.advance(ms);
@@ -60,20 +72,29 @@ function browser() {
   };
   const pulse = install({...fake, canvas: () => fake.canvas, now: fake.now});
   fake.Hooks.call('ready');
-  fake.actor.applyDamage = async ({damage}) => {
+  fake.actor.applyDamage = async options => {
+    const damage = typeof options === 'number' ? options : options.damage;
     const hp = fake.actor.system.attributes.hp;
     const old = {value: hp.value, temp: hp.temp};
     if (damage > 0) { const absorbed = Math.min(hp.temp, damage); hp.temp -= absorbed; hp.value = Math.max(0, hp.value - damage + absorbed); }
     else hp.value = Math.min(hp.max, hp.value - damage);
-    fake.Hooks.call('createChatMessage', fake.message(`m${clock}-${old.value}-${old.temp}`, {pf2e: {appliedDamage: {
+    if (system === 'dnd5e') fake.Hooks.call('updateActor', fake.actor, {}, {dnd5e: {hp: old}});
+    else fake.Hooks.call('createChatMessage', fake.message(`m${clock}-${old.value}-${old.temp}`, {[system]: {appliedDamage: {
       uuid: fake.actor.uuid, updates: [{path: 'system.attributes.hp.value', value: old.value - hp.value}, {path: 'system.attributes.hp.temp', value: old.temp - hp.temp}]
     }}}));
   };
   fake.game.pf2e.CheckModifier = class {};
   fake.game.pf2e.Check = {roll: async () => {
-    fake.Hooks.call('createChatMessage', fake.message('check', {pf2e: {context: {type: 'attack-roll', outcome: 'success'}}}));
+    const message = fake.message('check', {[system]: {context: {type: 'attack-roll', outcome: 'success'}}});
+    fake.Hooks.call('createChatMessage', message);
+    return message.rolls[0];
   }};
-  return {fake, pulse, sandbox, listeners, observers, rafs};
+  fake.actor.rollAbilityCheck = async () => {
+    const message = fake.message('check', {dnd5e: {roll: {type: 'check'}}});
+    fake.Hooks.call('createChatMessage', message);
+    return message.rolls;
+  };
+  return {fake, pulse, sandbox, listeners, observers, rafs, block: ms => { clock += ms; }};
 }
 
 test('fixture and variant validation reject unsafe emission before any browser mutation', () => {
@@ -147,6 +168,47 @@ test('mismatched fixture stops before update, pause, or settings changes', async
   assert.equal(report.cleanup.status, 'not-needed');
 });
 
+for (const system of ['pf2e', 'sf2e', 'dnd5e']) {
+  test(`${system} QA requires agreement with exactly one finite system roll`, async () => {
+    const input = {...fixture(), system: {id: system, version: {pf2e: '8.6.1', sf2e: '1.6.1', dnd5e: '6.0.6'}[system]}};
+    const valid = system === 'dnd5e' ? [{total: 24}] : {total: 24};
+    const invalid = system === 'dnd5e'
+      ? [[{total: 999}], null, undefined, [], [{total: 24}, {total: 24}], [{total: NaN}], [{total: '24'}]]
+      : [{total: 999}, null, undefined, [{total: 24}], {total: Infinity}, {total: '24'}];
+    for (const result of [valid, ...invalid]) {
+      const {fake, sandbox, listeners} = browser(system);
+      const original = structuredClone(fake.actor.system.attributes.hp);
+      const target = system === 'dnd5e' ? fake.actor : fake.game.pf2e.Check;
+      const key = system === 'dnd5e' ? 'rollAbilityCheck' : 'roll';
+      const roll = target[key];
+      target[key] = async (...args) => { await roll(...args); return result; };
+      const report = await vm.runInNewContext(makeQaMacro(input), sandbox);
+      assert.equal(report.status, result === valid ? 'complete' : 'failed', JSON.stringify(result));
+      if (result === valid) assert.equal(report.assertions.at(-1).status, 'passed');
+      if (result?.total === 999 || result?.[0]?.total === 999) assert.equal(report.assertions.at(-1).status, 'failed');
+      assert.equal(report.cleanup.status, 'complete');
+      assert.deepEqual(fake.actor.system.attributes.hp, original);
+      assert.equal(fake.game.paused, true);
+      assert.equal(listeners.size, 0);
+      assert.doesNotMatch(JSON.stringify(report), /999|"total"/);
+    }
+  });
+}
+
+test('QA rejects duplicate check displays even when both show the actual total', async () => {
+  const {fake, sandbox} = browser();
+  const roll = fake.game.pf2e.Check.roll;
+  fake.game.pf2e.Check.roll = async () => {
+    const result = await roll();
+    fake.Hooks.call('createChatMessage', fake.message('duplicate-check', {pf2e: {context: {type: 'attack-roll', outcome: 'success'}}}));
+    return result;
+  };
+  const report = await vm.runInNewContext(makeQaMacro(fixture()), sandbox);
+  assert.equal(report.status, 'failed');
+  assert.equal(report.assertions.at(-1).status, 'failed');
+  assert.equal(report.cleanup.status, 'complete');
+});
+
 test('system action failure retains primary failure and independently attempts every restoration', async () => {
   const {fake, sandbox, listeners} = browser();
   const restored = [];
@@ -186,6 +248,18 @@ test('emitted renderer burst accounts for all work, differences, expiry, observe
   assert.equal(observers.size, 0);
   assert.equal(rafs.size, 0);
   assert.equal(fake.game.paused, true);
+});
+
+test('emitted benchmark brackets blocked dispatch with actual observed frames', async () => {
+  const {fake, pulse, sandbox, block, rafs} = browser();
+  fake.game.modules.get('combat-pulse').api = {...pulse, show(effect) { block(1); return pulse.show(effect); }};
+  const report = await vm.runInNewContext(makeBenchmarkMacro(fixture(), 'baseline', 1, 'burst100'), sandbox);
+  assert.equal(report.status, 'complete');
+  assert.equal(report.samples.frameTimestampsMs[0], report.windowStartedMs);
+  assert.equal(report.samples.frameTimestampsMs.at(-1), report.windowFinishedMs);
+  assert.ok(report.samples.frameIntervalsMs.some(value => value >= 2100));
+  assert.equal(report.samples.dispatchMs.reduce((total, value) => total + value, 0), 100);
+  assert.equal(rafs.size, 0);
 });
 
 test('benchmark thrown API call restores observers and records failed work in its denominator', async () => {
@@ -292,6 +366,33 @@ test('comparator accepts chronological alternating pairs and retains pair and po
   assert.equal(comparison.pairs[0].summaries.dispatchMs.p95DeltaMs, -1);
   assert.equal(comparison.summaries[0].baseline.count, 50);
   assert.equal(comparison.budgets.status, 'uncalibrated');
+});
+
+test('comparator rejects truncated sampling at either window edge', () => {
+  for (const timestamps of [[100, 116], [4568, 4584]]) {
+    const data = reports();
+    for (const report of data) {
+      report.samples.frameTimestampsMs = timestamps;
+      report.samples.frameIntervalsMs = [16];
+    }
+    const result = compareRuns(data);
+    assert.equal(result.status, 'inconclusive');
+    assert.deepEqual(result.reasons, ['incomplete-frame-coverage']);
+    assert.deepEqual(result.summaries, []);
+  }
+});
+
+test('comparator retains slow cadence and interior stalls with complete window coverage', () => {
+  const data = reports();
+  for (const report of data) {
+    report.samples.frameTimestampsMs = [100, 1100, 2100, 3100, 4100];
+    report.samples.frameIntervalsMs = [1000, 1000, 1000, 1000];
+  }
+  const result = compareRuns(data);
+  assert.equal(result.status, 'comparable');
+  assert.equal(result.summaries[1].baseline.p95, 1000);
+  assert.equal(result.summaries[1].baseline.count, 20);
+  assert.equal(compareRuns(reports()).summaries[1].baseline.p95, 4468);
 });
 
 test('comparator rejects incomplete, unequal, erroneous, synthetic, and wrongly interleaved evidence', () => {

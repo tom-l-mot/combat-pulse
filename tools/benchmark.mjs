@@ -43,7 +43,6 @@ export async function runBrowserBenchmark(fixture, variant, pair, workload, cont
       lastFrame = timestamp;
       raf = requestAnimationFrame(frame);
     };
-    raf = requestAnimationFrame(frame);
     runner = canvas.app.renderer.runners?.postrender;
     let pendingDispatch;
     if (workload !== 'system-ten-hit' && runner?.add && runner?.remove) {
@@ -55,7 +54,9 @@ export async function runBrowserBenchmark(fixture, variant, pair, workload, cont
       }};
       runner.add(observer);
     } else report.unavailable.push({metric: 'dispatchToRenderCompleteMs', reasonCode: workload === 'system-ten-hit' ? 'system-boundary-not-isolated' : 'postrender-unavailable'});
-    report.windowStartedMs = now();
+    report.windowStartedMs = await new Promise(resolve => {
+      raf = requestAnimationFrame(timestamp => { frame(timestamp); resolve(timestamp); });
+    });
     for (let index = 0; index < count; index++) {
       owner.require(document.visibilityState === 'visible' && canvas.scene.id === fixture.sceneId, 'fixture-changed');
       const start = now();
@@ -86,7 +87,7 @@ export async function runBrowserBenchmark(fixture, variant, pair, workload, cont
     const idleFrames = owner.snapshot()?.frames;
     await owner.delay(250);
     report.idleDiagnosticFrames = owner.snapshot() ? owner.snapshot().frames - idleFrames : null;
-    report.windowFinishedMs = now();
+    report.windowFinishedMs = await new Promise(resolve => requestAnimationFrame(resolve));
     owner.require(document.visibilityState === 'visible' && canvas.scene.id === fixture.sceneId
       && JSON.stringify(owner.metadata(workload, cadence)) === JSON.stringify(report.metadata), 'metadata-changed');
     stopFrames = true;
@@ -195,6 +196,9 @@ function validateReport(report) {
     && report.windowFinishedMs - report.windowStartedMs >= m.cadenceMs * (count - 1) + 2250
     && s.dispatchMs.reduce((total, value) => total + value, 0) <= report.windowFinishedMs - report.windowStartedMs
     && s.frameTimestampsMs[0] >= report.windowStartedMs && s.frameTimestampsMs.at(-1) <= report.windowFinishedMs, 'invalid-window');
+  const edgeToleranceMs = quantile(s.frameIntervalsMs, 0.5) + 1;
+  require(s.frameTimestampsMs[0] - report.windowStartedMs <= edgeToleranceMs
+    && report.windowFinishedMs - s.frameTimestampsMs.at(-1) <= edgeToleranceMs, 'incomplete-frame-coverage');
   require(Array.isArray(s.dispatchToRenderCompleteMs) && s.dispatchToRenderCompleteMs.every(finite)
     && s.dispatchToRenderCompleteMs.length <= count && Array.isArray(report.unavailable), 'invalid-render-samples');
   const missingRender = report.unavailable.some(value => value.metric === 'dispatchToRenderCompleteMs' && string(value.reasonCode));
