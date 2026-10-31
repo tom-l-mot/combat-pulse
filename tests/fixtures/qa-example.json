@@ -1,0 +1,36 @@
+{
+  "schema": 1,
+  "disposable": true,
+  "synthetic": true,
+  "worldId": "REPLACE_LOCAL_WORLD",
+  "sceneId": "REPLACE_LOCAL_SCENE",
+  "actorId": "REPLACE_LOCAL_ACTOR",
+  "tokenId": "REPLACE_LOCAL_TOKEN",
+  "fixtureId": "pf2e-flat-scene",
+  "runId": "baseline-pair-1",
+  "clientId": "gm-client",
+  "system": {"id": "pf2e", "version": "8.6.1"},
+  "install": {
+    "sha": "0000000000000000000000000000000000000000",
+    "dirty": false,
+    "packageHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "receipt": "REPLACE_LOCAL_INSTALL_RECEIPT"
+  },
+  "machine": {
+    "label": "test-machine",
+    "cpu": "REPLACE_CPU",
+    "ram": "REPLACE_RAM",
+    "gpu": "REPLACE_GPU",
+    "os": "REPLACE_OS",
+    "browserVersion": "REPLACE_BROWSER_VERSION"
+  },
+  "settings": {
+    "enabled": true,
+    "numbers": true,
+    "checks": true,
+    "banners": true,
+    "reactions": false,
+    "shake": false,
+    "reducedMotion": false
+  }
+}
