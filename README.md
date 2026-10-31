@@ -2,7 +2,7 @@
 
 Combat feedback for Foundry Virtual Tabletop V14. Combat Pulse shows applied HP and temporary HP changes, check totals and known outcomes, critical banners, optional token visual echoes, and effect shake.
 
-This first playable has no runtime dependencies. Its code and geometric graphics are original and MIT licensed. RPG Numbers is a behavior reference. No source, art, or audio from that module is included.
+This first playable has no runtime dependencies.
 
 ## Install and preview
 
