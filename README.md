@@ -11,7 +11,9 @@ This first playable has no runtime dependencies.
 3. Enable Combat Pulse in the test world.
 4. Open **Configure Settings**, then **Combat Pulse**. Select a visible token and open **Preview Combat Pulse**.
 
-The repository is private. There is no published release or public manifest installer URL yet.
+Public preview installer manifest: https://github.com/tom-l-mot/combat-pulse/releases/download/v0.1.0-preview.1/module.json
+
+Paste this URL into Foundry's Install Module manifest field. Source and releases are hosted together in this repository. This remains an early testing preview.
 
 ## System support
 

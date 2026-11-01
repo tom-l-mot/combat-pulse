@@ -8,5 +8,7 @@
   "esmodules": ["scripts/main.js"],
   "styles": ["styles/combat-pulse.css"],
   "url": "https://github.com/tom-l-mot/combat-pulse",
-  "license": "LICENSE"
+  "license": "LICENSE",
+  "manifest": "https://github.com/tom-l-mot/combat-pulse/releases/download/v0.1.0-preview.1/module.json",
+  "download": "https://github.com/tom-l-mot/combat-pulse/releases/download/v0.1.0-preview.1/combat-pulse.zip"
 }
